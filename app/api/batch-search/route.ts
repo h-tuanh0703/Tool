@@ -32,29 +32,13 @@ export async function POST(request: NextRequest) {
     }
     
     console.log('Loading playwright...')
-    const playwright = require('playwright')
-    const { chromium } = playwright
+    const playwright = require('playwright-aws-lambda')
     console.log('Launching browser...')
-    const browser = await chromium.launch({ 
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-features=VizDisplayCompositor',
-        '--disable-web-security',
-        '--disable-features=site-per-process'
-      ]
+    const browser = await playwright.launchChromium({ 
+      headless: true
     })
     
-    const context = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      viewport: { width: 1366, height: 768 },
-      locale: 'en-US',
-      timezoneId: 'America/New_York'
-    })
-    
-    const page = await context.newPage()
+    const page = await browser.newPage()
     
     // Advanced anti-detection
     await page.addInitScript(() => {
