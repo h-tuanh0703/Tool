@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     
     const playwright = require('playwright')
     const { chromium } = playwright
-    const browser = await chromium.launch({ headless: true })
+    const browser = await chromium.launch({ headless: false })
     const page = await browser.newPage()
     
     await page.addInitScript(() => {
