@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && playwright install chromium",
     "start": "next start",
-    "postinstall": "playwright install chromium"
+    "postinstall": "playwright install chromium --with-deps"
   },
   "dependencies": {
     "@netlify/plugin-nextjs": "^5.13.2",

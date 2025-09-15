@@ -9,4 +9,9 @@
   package = "@netlify/plugin-nextjs"
 
 [build.environment]
-  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
+  PLAYWRIGHT_BROWSERS_PATH = "0"
+
+# Note: Set these in Netlify Dashboard instead
+# [context.production.environment]
+#   MERCHANTWORDS_USERNAME = "your_username"
+#   MERCHANTWORDS_PASSWORD = "your_password"

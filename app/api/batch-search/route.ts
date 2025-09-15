@@ -12,7 +12,7 @@ interface QueryResult {
 }
 
 export const runtime = 'nodejs'
-export const maxDuration = 300 // 5 minutes
+export const maxDuration = 26 // Netlify max timeout
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,27 +24,106 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No queries provided' }, { status: 400 })
     }
     
+    // Limit queries for Netlify timeout (26 seconds)
+    if (queries.length > 2) {
+      return NextResponse.json({ 
+        error: 'Too many queries. Maximum 2 queries per request due to Netlify timeout limits.' 
+      }, { status: 400 })
+    }
+    
     console.log('Loading playwright...')
     const playwright = require('playwright')
     const { chromium } = playwright
     console.log('Launching browser...')
-    const browser = await chromium.launch({ headless: false })
-    const page = await browser.newPage()
+    const browser = await chromium.launch({ 
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-blink-features=AutomationControlled',
+        '--disable-features=VizDisplayCompositor',
+        '--disable-web-security',
+        '--disable-features=site-per-process'
+      ]
+    })
     
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      viewport: { width: 1366, height: 768 },
+      locale: 'en-US',
+      timezoneId: 'America/New_York'
+    })
+    
+    const page = await context.newPage()
+    
+    // Advanced anti-detection
     await page.addInitScript(() => {
+      delete (window as any).webdriver
+      delete (navigator as any).webdriver
+      
       Object.defineProperty(navigator, 'webdriver', {
         get: () => undefined,
       })
+      
+      ;(window as any).chrome = {
+        runtime: {
+          onConnect: undefined,
+          onMessage: undefined
+        }
+      }
+      
+      Object.defineProperty(navigator, 'plugins', {
+        get: () => [
+          { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer' },
+          { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai' }
+        ]
+      })
     })
     
-    await page.goto('https://www.merchantwords.com/', { waitUntil: 'domcontentloaded' })
+    // Navigate with retry mechanism
+    let retryCount = 0
+    const maxRetries = 3
+    
+    while (retryCount < maxRetries) {
+      try {
+        await page.goto('https://www.merchantwords.com/', { 
+          waitUntil: 'domcontentloaded',
+          timeout: 30000
+        })
+        
+        // Check if we hit bot detection
+        const isBlocked = await page.evaluate(() => {
+          return document.body.innerText.toLowerCase().includes('bot') ||
+                 document.body.innerText.toLowerCase().includes('captcha') ||
+                 document.body.innerText.toLowerCase().includes('blocked') ||
+                 document.title.toLowerCase().includes('access denied')
+        })
+        
+        if (isBlocked) {
+          console.log(`Bot detection hit, retry ${retryCount + 1}/${maxRetries}`)
+          await page.waitForTimeout(5000 + Math.random() * 5000)
+          retryCount++
+          continue
+        }
+        
+        break
+      } catch (error) {
+        console.log(`Navigation failed, retry ${retryCount + 1}/${maxRetries}:`, error)
+        retryCount++
+        if (retryCount >= maxRetries) throw error
+        await page.waitForTimeout(3000)
+      }
+    }
     
     // Login once
     const username = process.env.MERCHANTWORDS_USERNAME
     const password = process.env.MERCHANTWORDS_PASSWORD
     console.log('Environment variables:', { 
       hasUsername: !!username, 
-      hasPassword: !!password 
+      hasPassword: !!password,
+      usernameLength: username?.length || 0,
+      passwordLength: password?.length || 0,
+      nodeEnv: process.env.NODE_ENV
     })
     
     if (username && password) {
@@ -76,7 +155,7 @@ export async function POST(request: NextRequest) {
           await page.fill('#usersearchbox', query)
           await page.keyboard.press('Enter')
           await page.waitForLoadState('domcontentloaded')
-          await page.waitForTimeout(3000)
+          await page.waitForTimeout(1000) // Reduced for Netlify timeout
           
           await page.waitForSelector('#resultsTable tbody tr', { timeout: 8000 })
           
