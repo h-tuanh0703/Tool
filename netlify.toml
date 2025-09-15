@@ -1,5 +1,5 @@
 [build]
-  command = "npm run build"
+  command = "npm install && npx playwright install chromium && npm run build"
   publish = ".next"
 
 [functions]
@@ -9,6 +9,7 @@
   package = "@netlify/plugin-nextjs"
 
 [build.environment]
+  PLAYWRIGHT_BROWSERS_PATH = "0"
   NODE_ENV = "production"
 
 # Note: Set these in Netlify Dashboard instead

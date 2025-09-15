@@ -4,7 +4,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "postinstall": "playwright install chromium",
+    "deploy:vercel": "vercel --prod",
+    "deploy:netlify": "netlify deploy --prod"
   },
   "dependencies": {
     "@netlify/plugin-nextjs": "^5.13.2",
@@ -12,8 +15,7 @@
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "next": "^14.0.0",
-    "playwright-aws-lambda": "^0.10.0",
-    "playwright-core": "^1.40.0",
+    "playwright": "^1.55.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "typescript": "^5.0.0"
