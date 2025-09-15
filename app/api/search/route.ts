@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { chromium } from 'playwright'
+
+interface KeywordResult {
+  keyword: string
+  volume: string | number
+}
 
 export const runtime = 'nodejs'
 export const maxDuration = 300 // 5 minutes
@@ -8,6 +12,8 @@ export async function POST(request: NextRequest) {
   try {
     const { query } = await request.json()
     
+    const playwright = require('playwright')
+    const { chromium } = playwright
     const browser = await chromium.launch({ headless: true })
     const page = await browser.newPage()
     
@@ -50,25 +56,25 @@ export async function POST(request: NextRequest) {
     // Extract keywords
     await page.waitForSelector('#resultsTable tbody tr', { timeout: 8000 })
     
-    const filteredKeywords = await page.evaluate(() => {
+    const filteredKeywords = await page.evaluate((): KeywordResult[] => {
       const rows = document.querySelectorAll('#resultsTable tbody tr')
-      const results = []
+      const results: KeywordResult[] = []
       
-      for (let row of rows) {
+      Array.from(rows).forEach(row => {
         try {
-          const keywordElem = row.querySelector('li.keywords span')
-          if (!keywordElem) continue
+          const keywordElem = row.querySelector('li.keywords span') as HTMLElement
+          if (!keywordElem) return
           
           const keyword = keywordElem.innerText.trim()
-          if (!keyword) continue
+          if (!keyword) return
           
           const tds = row.querySelectorAll('td')
-          for (let td of tds) {
-            const text = td.textContent.trim()
+          Array.from(tds).forEach(td => {
+            const text = td.textContent?.trim() || ''
             
             if (text === '< 100') {
               results.push({ keyword, volume: '< 100' })
-              break
+              return
             }
             
             const numMatch = text.match(/^(\d+)$/)
@@ -76,22 +82,22 @@ export async function POST(request: NextRequest) {
               const volume = parseInt(numMatch[1])
               if (volume < 100) {
                 results.push({ keyword, volume })
-                break
+                return
               }
             }
-          }
+          })
         } catch (e) {
-          continue
+          // continue
         }
-      }
+      })
       return results
     })
     
     await browser.close()
     
     return NextResponse.json({
-      keywords: filteredKeywords.map(item => item.keyword),
-      volumes: filteredKeywords.map(item => item.volume),
+      keywords: filteredKeywords.map((item: KeywordResult) => item.keyword),
+      volumes: filteredKeywords.map((item: KeywordResult) => item.volume),
       total_count: filteredKeywords.length,
       query
     })
